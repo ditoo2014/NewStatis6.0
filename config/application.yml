@@ -1,0 +1,102 @@
+﻿server:
+# HTTP 服务配置；所有业务时间按北京时间解释和展示。
+  port: 8013
+  timezone: Asia/Shanghai
+
+# 日志同时输出到控制台和文件，并按大小、份数和保留天数自动清理。
+log:
+  path: ./logs/newstats.log
+  level: info
+  max_size_mb: 100
+  max_backups: 30
+  max_age_days: 30
+  compress: true
+
+# MySQL 连接池与启动重试配置。
+mysql:
+  host: 192.168.0.56
+  port: 3306
+  username: root
+  password: ditoo_business
+  database: stats
+  max_open_conns: 20
+  max_idle_conns: 10
+  conn_max_lifetime_minutes: 30
+  retry_count: 10
+  retry_interval_seconds: 10
+
+# 天马服务器
+# mysql:
+#   host: 192.168.0.56
+#   port: 3306
+#   username: root
+#   password: ditoo_business
+#   database: stats
+#   max_open_conns: 20
+#   max_idle_conns: 10
+#   conn_max_lifetime_minutes: 30
+#   retry_count: 10
+#   retry_interval_seconds: 10
+
+
+
+# InfluxDB 保存原始采集数据和统计历史；历史 measurement 可按环境调整。
+influx:
+  host: localhost
+  port: 8086
+  username: tolink
+  password: "8981409"
+  database: tolink
+  history_measurement: StatsAcc
+# 当前原始采集 measurement 固定取统计器 gatewayID；该字段保留配置兼容。
+  raw_measurement_from_gateway: true
+  precision: ns
+  retry_count: 10
+  retry_interval_seconds: 10
+
+# 采集云接口用于导入导出时校验网关和测点。
+cjy:
+  base_url: localhost:83
+  username: ditoo
+  password: ditoo_password
+
+# 统计调度与批处理配置。
+stats:
+  enable: true
+  # 全量实时调度间隔；一轮尚未结束时不会并发启动下一轮。
+  interval_seconds: 300
+  # 独立逐统计器立即执行入口的并发上限，常规定时任务使用网关批处理。
+  max_concurrency: 20
+  # 深历史补算工作器数量，仅在服务启动时读取，修改后需要重启。
+  backfill_concurrency: 5
+  # 启动后立即检查历史缺口；关闭时等待首个定时周期。
+  catch_up_on_start: true
+  # 单个统计器单轮最多补算的闭合周期数。
+  catch_up_batch_size: 200
+  # 周期结束后等待采集数据到达的缓冲秒数。
+  settle_delay_seconds: 30
+  # InfluxDB 统计查询和写入超时。
+  query_timeout_seconds: 15
+  write_timeout_seconds: 15
+  # 单次 InfluxQL 中包含的测点 ID 上限。
+  source_id_batch_size: 300
+  # MySQL 状态 Upsert 和 InfluxDB 历史写入的拆批大小。
+  state_upsert_batch_size: 500
+  history_write_batch_size: 2000
+  # 查询成功但整周期无采集数据时写 0；查询失败时不写 0、不推进游标。
+  write_zero_when_period_no_data: true
+  # 当前实时接口无数据固定返回 0；该字段保留配置兼容。
+  realtime_zero_when_no_current_data: true
+  # 累计值回退产生负增量时转换为 0。
+  negative_delta_policy: zero
+
+# 删除统计器后异步清理统计历史；原始采集数据不会被删除。
+delete_task:
+  enable: true
+  async_history_delete: true
+  worker_interval_seconds: 30
+  # 历史删除并发宜保持较低，避免影响实时统计查询。
+  max_concurrency: 2
+  max_retry: 5
+  influx_timeout_seconds: 60
+  batch_size: 50
