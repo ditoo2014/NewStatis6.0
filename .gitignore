@@ -30,3 +30,4 @@
 # OS files
 .DS_Store
 Thumbs.db
+/migrations/统计池发布说明.md
