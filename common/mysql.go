@@ -36,6 +36,10 @@ func InitMysql() error {
 			if err != nil {
 				return err
 			}
+			if err = initStatsCodeSequence(DB); err != nil {
+				return fmt.Errorf("初始化统计编号表失败: %w", err)
+			}
+			initStatsPoolIndexes(DB)
 			logger.Info("MySQL connected", nil)
 			return nil
 		}

@@ -4,8 +4,12 @@ import (
 	"NewStatis6.0/common"
 	"NewStatis6.0/logger"
 	"NewStatis6.0/model"
+	"NewStatis6.0/utils"
 	"errors"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 // GetPoolByName 判断统计池名称是否已存在。
@@ -16,8 +20,32 @@ func GetPoolByName(name string) bool {
 }
 
 // CreateDataPool 新建统计池配置。
-func CreateDataPool(pool model.StatsDataPool) error {
-	return common.GetMysql().Model(&model.StatsDataPool{}).Create(&pool).Error
+func CreateDataPool(pool *model.StatsDataPool) error {
+	pool.PoolName, pool.Admin = strings.TrimSpace(pool.PoolName), strings.TrimSpace(pool.Admin)
+	if pool.PoolName == "" || pool.Admin == "" || utf8.RuneCountInString(pool.PoolName) > 255 || utf8.RuneCountInString(pool.Admin) > 100 {
+		return errors.New("池名称和管理员不能为空或超出长度限制")
+	}
+	for attempt := 0; attempt < 5; attempt++ {
+		var count int64
+		if err := common.GetMysql().Model(&model.StatsDataPool{}).Where("poolName = ?", pool.PoolName).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return errors.New("名称重复")
+		}
+		key, err := utils.GenerateUniqueID()
+		if err != nil {
+			return err
+		}
+		pool.ID, pool.ApiKey = 0, key
+		err = common.GetMysql().Create(pool).Error
+		var duplicate *mysql.MySQLError
+		if errors.As(err, &duplicate) && duplicate.Number == 1062 {
+			continue
+		}
+		return err
+	}
+	return errors.New("名称重复或API Key冲突，请重试")
 }
 
 // UpdatePool 更新统计池名称和所属管理员，API Key 保持不变。

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"NewStatis6.0/algorithm"
 	"NewStatis6.0/model"
 	"NewStatis6.0/services"
 	"NewStatis6.0/utils"
@@ -23,21 +24,32 @@ func CreatePool(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "参数错误"})
 		return
 	}
-	if services.GetPoolByName(pool.PoolName) {
-		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "名称重复"})
+	// Ignore client-supplied IDs and API keys.
+	pool.ID, pool.ApiKey = 0, ""
+	if err := services.CreateDataPool(&pool); err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": err.Error()})
 		return
 	}
-	apiKey, err := utils.GenerateUniqueID()
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "创建成功", "data": pool})
+}
+
+// CreateLabelsFromPoints refreshes the scheduler only after a successful commit.
+func CreateLabelsFromPoints(ctx *gin.Context) {
+	var req model.CreateLabelsFromPointsReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "参数错误"})
+		return
+	}
+	result, err := services.CreateLabelsFromPoints(req)
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "apikey获取失败"})
+		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": err.Error()})
 		return
 	}
-	pool.ApiKey = apiKey
-	if err = services.CreateDataPool(pool); err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "创建失败", "error": err.Error()})
-		return
+	if result.Created > 0 {
+		algorithm.GetAllAccumulate()
+		algorithm.NotifyAccumulates()
 	}
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "创建成功"})
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": fmt.Sprintf("新增%d个标签，跳过%d个已有标签", result.Created, result.Skipped), "data": result})
 }
 
 // UpdatePool 更新统计池名称和管理员信息。
@@ -92,43 +104,20 @@ func DelPool(ctx *gin.Context) {
 }
 
 // CreateLabel 为统计池批量创建标签，生成标签 ID 并接续现有显示序号。
-// 已被引用的统计编码会在响应消息中提示，以保持既有接口行为。
+// 保留旧请求格式，同池内已引用的统计编码跳过并在响应中提示。
 func CreateLabel(ctx *gin.Context) {
 	var labels []model.StatsDataPoolInfo
 	if err := ctx.BindJSON(&labels); err != nil || len(labels) == 0 {
 		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "参数错误"})
 		return
 	}
-	var codes []string
-	for _, v := range labels {
-		codes = append(codes, v.StatsCode)
-	}
-	exist, err := services.IsExistLabel(codes)
+	created, skipped, err := services.CreateLegacyPoolLabels(labels)
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "系统错误", "error": err.Error()})
-		return
-	}
-	var msg string
-	if len(exist) > 0 {
-		var repeated []string
-		for _, v := range exist {
-			repeated = append(repeated, v.StatsCode)
-		}
-		msg = strings.Join(repeated, ",")
-	}
-	last, _ := services.GetNewLabelXH(labels[0].PoolID)
-	xh := last.XH
-	for i := range labels {
-		labels[i].LabelID, _ = utils.GenerateRandomNumericString()
-		xh++
-		labels[i].XH = xh
-	}
-	if err = services.CreateLabels(labels); err != nil {
 		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "创建失败", "error": err.Error()})
 		return
 	}
-	if msg != "" {
-		ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "统计编号重复：" + msg + "，其它创建成功"})
+	if len(skipped) > 0 {
+		ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "统计编号重复：" + strings.Join(skipped, ",") + "，已跳过", "data": gin.H{"created": created, "skipped": len(skipped)}})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "创建成功"})

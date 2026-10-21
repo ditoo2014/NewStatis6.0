@@ -37,6 +37,7 @@ func ConnectRoute(router *gin.Engine) *gin.Engine {
 		statsDataPool.POST("/getPool", controller.GetPool)
 		statsDataPool.DELETE("/delPool", controller.DelPool)
 		statsDataPool.POST("/createLabel", controller.CreateLabel)
+		statsDataPool.POST("/createLabelsFromPoints", controller.CreateLabelsFromPoints)
 		statsDataPool.GET("/getLabel", controller.GetLabel)
 		statsDataPool.GET("/getLabelByApiKey", controller.GetLabelByApiKey)
 		statsDataPool.PUT("/updateLabel", controller.UpdateLabel)
