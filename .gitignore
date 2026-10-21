@@ -5,7 +5,6 @@
 .agents/
 
 # Local configuration and secrets
-/config/application.yml
 .env
 .env.*
 !.env.example
