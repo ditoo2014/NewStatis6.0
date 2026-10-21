@@ -2,19 +2,18 @@
 package controller
 
 import (
-	"fmt"
-	"net/http"
-	"net/url"
-	"os"
-	"strconv"
-	"time"
-
 	"NewStatis6.0/algorithm"
 	"NewStatis6.0/config"
 	"NewStatis6.0/logger"
 	"NewStatis6.0/model"
 	"NewStatis6.0/services"
 	"NewStatis6.0/utils"
+	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
@@ -333,22 +332,6 @@ func sumAccForms(forms []model.AccForm) float64 {
 func AccGetIdAndName(ctx *gin.Context) {
 	ty, _ := strconv.Atoi(ctx.Query("type"))
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "查询成功", "data": services.AccGetIdAndName(ty)})
-}
-
-// AccGetReportIdAndName 返回指定项目报表白名单中的统计器“ID:名称”列表。
-// tianma项目专用接口
-func AccGetReportIdAndName(ctx *gin.Context) {
-	ty, err := strconv.Atoi(ctx.Query("type"))
-	if err != nil || ty < 0 || ty > 3 {
-		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "type参数错误"})
-		return
-	}
-	project := ctx.Query("project")
-	if project != "tianma" {
-		ctx.JSON(http.StatusOK, gin.H{"code": 400, "msg": "project参数错误"})
-		return
-	}
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "查询成功", "data": services.AccGetReportIdAndName(ty, project)})
 }
 
 // AccGetDevice 返回统计器配置中可用的设备类型。

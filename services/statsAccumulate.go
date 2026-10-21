@@ -2,21 +2,16 @@
 package services
 
 import (
-	"reflect"
-	"regexp"
-	"strings"
-	"time"
-
 	"NewStatis6.0/common"
 	"NewStatis6.0/config"
 	"NewStatis6.0/logger"
 	"NewStatis6.0/model"
+	"reflect"
+	"strings"
+	"time"
 
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
-
-var tianmaLineNamePattern = regexp.MustCompile(`^[一二三四五六七八九十百千万0-9]+号线[_-]`)
 
 // FindAccumulateById 判断统计器是否存在，并返回数据库记录是否与传入配置完全一致。
 func FindAccumulateById(acc model.Accumulate) (bool, bool) {
@@ -30,19 +25,7 @@ func FindAccumulateById(acc model.Accumulate) (bool, bool) {
 
 // CreateAccumulate 批量写入统计器基础配置。
 func CreateAccumulate(list []model.Accumulate) error {
-	tx := common.GetMysql().Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-	if err := tx.Model(&model.Accumulate{}).Create(&list).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := syncTianmaAccumulatesTx(tx, list); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit().Error
+	return common.GetMysql().Model(&model.Accumulate{}).Create(&list).Error
 }
 
 // UpdateAccumulate 在同一事务中更新统计器配置并删除其中间状态。
@@ -62,10 +45,6 @@ func UpdateAccumulate(stats []model.Accumulate) error {
 			tx.Rollback()
 			return err
 		}
-	}
-	if err := syncTianmaAccumulatesTx(tx, stats); err != nil {
-		tx.Rollback()
-		return err
 	}
 	return tx.Commit().Error
 }
@@ -144,10 +123,6 @@ func DelAccumulate(list model.IDList) error {
 		tx.Rollback()
 		return err
 	}
-	if err := deleteTianmaByIDsTx(tx, list.List); err != nil {
-		tx.Rollback()
-		return err
-	}
 	return tx.Commit().Error
 }
 
@@ -192,106 +167,6 @@ func AccGetIdAndName(ty int) (dataListStr []string) {
 		dataListStr = append(dataListStr, v.ID+":"+v.StatsName)
 	}
 	return
-}
-
-// 天马项目报表白名单表中的统计器配置。
-// AccGetReportIdAndName 返回天马报表白名单表中的“ID:名称”列表。
-func AccGetReportIdAndName(ty int, project string) (dataListStr []string) {
-	if project != "tianma" {
-		return
-	}
-	prefix, ok := accTypeIDPrefix(ty)
-	if !ok {
-		return
-	}
-	var data []model.Accumulate
-	common.GetMysql().Table("tianma").
-		Select("id,statsName").
-		Where("type = ? AND id LIKE ?", ty, prefix+"%").
-		Order("CAST(SUBSTRING(id, 2) AS UNSIGNED)").
-		Find(&data)
-	for _, v := range data {
-		dataListStr = append(dataListStr, v.ID+":"+v.StatsName)
-	}
-	return
-}
-
-func accTypeIDPrefix(ty int) (string, bool) {
-	switch ty {
-	case 0:
-		return "B", true
-	case 1:
-		return "H", true
-	case 2:
-		return "D", true
-	case 3:
-		return "M", true
-	default:
-		return "", false
-	}
-}
-
-func syncTianmaAccumulatesTx(tx *gorm.DB, list []model.Accumulate) error {
-	for _, acc := range list {
-		if isTianmaReportAccumulate(acc) {
-			if err := upsertTianmaAccumulateTx(tx.Table("tianma"), acc); err != nil {
-				return err
-			}
-			continue
-		}
-		if strings.TrimSpace(acc.ID) != "" {
-			if err := tx.Table("tianma").Where("id = ?", acc.ID).Delete(&model.Accumulate{}).Error; err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func upsertTianmaAccumulateTx(db *gorm.DB, acc model.Accumulate) error {
-	return db.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{
-			"gatewayID",
-			"point",
-			"statsName",
-			"type",
-			"startTime",
-			"deviceType",
-			"count",
-			"notes",
-			"largeName",
-		}),
-	}).Create(&acc).Error
-}
-
-func isTianmaReportAccumulate(acc model.Accumulate) bool {
-	statsName := strings.TrimSpace(acc.StatsName)
-	if !tianmaLineNamePattern.MatchString(statsName) {
-		return false
-	}
-	prefix, ok := accTypeIDPrefix(acc.Type)
-	if !ok {
-		return false
-	}
-	return strings.HasPrefix(strings.TrimSpace(acc.ID), prefix)
-}
-
-func deleteTianmaByIDsTx(tx *gorm.DB, ids []string) error {
-	var normalized []string
-	seen := map[string]bool{}
-	for _, id := range ids {
-		id = strings.TrimSpace(id)
-		if id == "" || seen[id] {
-			continue
-		}
-		seen[id] = true
-		normalized = append(normalized, id)
-	}
-	if len(normalized) == 0 {
-		return nil
-	}
-	return tx.Table("tianma").Where("id IN ?", normalized).Delete(&model.Accumulate{}).Error
 }
 
 // AccGetDevice 返回统计器配置中不重复的设备类型。

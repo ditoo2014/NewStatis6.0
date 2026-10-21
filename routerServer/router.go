@@ -27,8 +27,6 @@ func ConnectRoute(router *gin.Engine) *gin.Engine {
 		statsAccumulate.GET("/getDevice", controller.AccGetDevice)
 		statsAccumulate.POST("/accUpload", controller.AccUpload)
 		statsAccumulate.POST("/output", controller.AccOutput)
-		//新增一个用于获取tianma项目报表白名单中的统计器“ID:名称”列表的接口
-		statsAccumulate.GET("/getReportIdAndName", controller.AccGetReportIdAndName)
 	}
 
 	// 统计池及其标签管理接口。

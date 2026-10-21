@@ -10,13 +10,14 @@ import (
 
 // AppConfig 聚合服务运行所需的全部配置分组。
 type AppConfig struct {
-	Server ServerConfig `yaml:"server"`
-	Log    LogConfig    `yaml:"log"`
-	MySQL  MySQLConfig  `yaml:"mysql"`
-	Influx InfluxConfig `yaml:"influx"`
-	CJY    CJYConfig    `yaml:"cjy"`
-	Stats  StatsConfig  `yaml:"stats"`
-	Delete DeleteConfig `yaml:"delete_task"`
+	Server      ServerConfig      `yaml:"server"`
+	Log         LogConfig         `yaml:"log"`
+	MySQL       MySQLConfig       `yaml:"mysql"`
+	Influx      InfluxConfig      `yaml:"influx"`
+	CJY         CJYConfig         `yaml:"cjy"`
+	Stats       StatsConfig       `yaml:"stats"`
+	Delete      DeleteConfig      `yaml:"delete_task"`
+	Calibration CalibrationConfig `yaml:"calibration"`
 }
 
 // ServerConfig 定义 HTTP 服务端口和业务时间所使用的时区。
@@ -144,6 +145,7 @@ func LoadConfig(path string) error {
 
 // applyDefaults 为未显式填写的配置项补充保守的运行默认值。
 func applyDefaults() {
+	Conf.Calibration.Defaults()
 	if Conf.Server.Port == 0 {
 		Conf.Server.Port = 8014
 	}

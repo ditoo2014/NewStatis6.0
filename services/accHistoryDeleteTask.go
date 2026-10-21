@@ -71,10 +71,6 @@ func DelAccumulateWithHistoryTasks(list model.IDList) (taskCount int, asyncHisto
 		tx.Rollback()
 		return 0, asyncHistoryDelete, err
 	}
-	if err = deleteTianmaByIDsTx(tx, ids); err != nil {
-		tx.Rollback()
-		return 0, asyncHistoryDelete, err
-	}
 	return taskCount, asyncHistoryDelete, tx.Commit().Error
 }
 

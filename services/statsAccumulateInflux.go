@@ -194,6 +194,11 @@ func FindBoundaryPointsInRange(accList []model.Accumulate, start, end int64) (ma
 
 // queryGroupedSelector 使用 GROUP BY id 执行 first 或 last 聚合，并按测点返回结果。
 func queryGroupedSelector(measurement string, pointIDs []string, start, end int64, selector string) (map[string]PointValue, error) {
+	return QueryBoundarySelector(common.GetInfluxDB(), measurement, pointIDs, start, end, selector)
+}
+
+// QueryBoundarySelector 允许独立审计客户端复用正式统计的原始点过滤规则。
+func QueryBoundarySelector(conn client.Client, measurement string, pointIDs []string, start, end int64, selector string) (map[string]PointValue, error) {
 	points := make(map[string]PointValue, len(pointIDs))
 	if len(pointIDs) == 0 {
 		return points, nil
@@ -207,7 +212,7 @@ func queryGroupedSelector(measurement string, pointIDs []string, start, end int6
 	}
 	cmd := fmt.Sprintf("SELECT %s(value) AS value FROM \"%s\" WHERE status = 1 and (value != 0 or value != '0') and time >= %d000000000 and time < %d000000000 and (%s) GROUP BY \"id\"",
 		selector, escapeInfluxIdentifier(measurement), start, end, strings.Join(filters, " OR "))
-	res, err := common.GetInfluxDB().Query(client.NewQuery(cmd, config.Conf.Influx.Database, "s"))
+	res, err := conn.Query(client.NewQuery(cmd, config.Conf.Influx.Database, "s"))
 	if err != nil {
 		return nil, err
 	}

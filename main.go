@@ -39,6 +39,8 @@ func main() {
 		go algorithm.StartAllAccumulate()
 	}
 	services.StartAccHistoryDeleteWorker()
+	stopCalibration := algorithm.StartCalibration()
+	defer stopCalibration()
 	if err := router.Run(fmt.Sprintf(":%d", config.Conf.Server.Port)); err != nil {
 		logger.Error("server run failed", err)
 	}

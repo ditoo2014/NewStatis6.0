@@ -1,2 +1,32 @@
+# Local IDE settings
 .idea/
+.vscode/
 *.iml
+.agents/
+
+# Local configuration and secrets
+/config/application.yml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Build output and runtime files
+/newstats
+/stats
+*.exe
+*.test
+*.out
+/bin/
+/dist/
+/logs/
+*.log
+*.log.*
+
+# Local deployment inventory
+/部署项目.md
+
+# OS files
+.DS_Store
+Thumbs.db
